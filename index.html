@@ -4,9 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Theo Dõi Vị Trí Thời Gian Thực</title>
-  <!-- Link tới Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <!-- Google Font: Inter -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     /* Kiểu dáng cơ bản cho body */
@@ -30,7 +28,7 @@
 
     /* Kiểu dáng cho thẻ div bản đồ */
     #map {
-      height: 80vh; /* Chiếm 80% chiều cao viewport */
+      height: 70vh; /* Chiếm 70% chiều cao viewport */
       width: 95%; /* Chiếm 95% chiều rộng của parent container */
       max-width: 800px; /* Giới hạn chiều rộng tối đa */
       border-radius: 12px; /* Bo tròn các góc */
@@ -53,7 +51,7 @@
       margin-bottom: 20px; /* Thêm margin dưới */
     }
 
-    .info-box p {
+    .info-box p, .info-box h3 {
       margin: 8px 0;
       font-size: 1.1em;
     }
@@ -68,12 +66,54 @@
       word-break: break-all; /* Ngắt từ dài để tránh tràn */
     }
 
+    .control-group {
+      display: flex;
+      justify-content: center;
+      gap: 15px; /* Khoảng cách giữa các nút */
+      margin-bottom: 15px;
+    }
+
+    .control-group button {
+      padding: 12px 25px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1.1em;
+      font-weight: 600;
+      transition: background-color 0.3s ease, transform 0.2s ease, opacity 0.3s ease;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .control-group button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    #start-record-button {
+      background-color: #28a745; /* Green */
+      color: white;
+    }
+    #start-record-button:hover:not(:disabled) {
+      background-color: #218838;
+      transform: translateY(-2px);
+    }
+
+    #stop-record-button {
+      background-color: #dc3545; /* Red */
+      color: white;
+    }
+    #stop-record-button:hover:not(:disabled) {
+      background-color: #c82333;
+      transform: translateY(-2px);
+    }
+
     .input-group {
       margin-top: 15px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 10px; /* Khoảng cách giữa các phần tử */
+      gap: 10px;
     }
 
     .input-group label {
@@ -87,13 +127,13 @@
       border: 1px solid #ccc;
       border-radius: 8px;
       width: 100%;
-      max-width: 300px; /* Giới hạn chiều rộng input */
-      box-sizing: border-box; /* Bao gồm padding và border vào width */
+      max-width: 300px;
+      box-sizing: border-box;
       font-size: 1em;
     }
 
     .input-group button {
-      background-color: #28a745; /* Màu xanh lá cây */
+      background-color: #007BFF; /* Blue */
       color: white;
       padding: 10px 20px;
       border: none;
@@ -105,7 +145,7 @@
     }
 
     .input-group button:hover {
-      background-color: #218838;
+      background-color: #0056b3;
       transform: translateY(-2px);
     }
 
@@ -157,7 +197,7 @@
     /* Responsive adjustments */
     @media (max-width: 768px) {
       #map {
-        height: 70vh; /* Giảm chiều cao bản đồ trên thiết bị nhỏ */
+        height: 60vh; /* Giảm chiều cao bản đồ trên thiết bị nhỏ */
       }
       .info-box {
         padding: 15px 20px;
@@ -172,18 +212,28 @@
 <body>
   <h1>Ứng Dụng Theo Dõi Vị Trí Thời Gian Thực</h1>
 
-  <!-- Vùng hiển thị bản đồ -->
   <div id="map"></div>
 
-  <!-- Hộp thông tin để hiển thị tọa độ và tốc độ -->
   <div class="info-box">
     <p>Trạng thái: <strong>Đang chờ vị trí...</strong></p>
     <p>Vị trí hiện tại của bạn:</p>
     <p>Vĩ độ: <span id="current-lat">N/A</span>, Kinh độ: <span id="current-lng">N/A</span></p>
     <p>Tốc độ: <span id="current-speed">N/A</span> km/h</p>
 
-    <!-- Hiển thị ID của thiết bị hiện tại (máy gửi dữ liệu) -->
     <p>ID Thiết bị của bạn (Gửi dữ liệu): <span id="my-device-id">Đang tạo...</span></p>
+
+    <div class="control-group">
+      <button id="start-record-button">Bắt đầu Ghi Chuyến Đi</button>
+      <button id="stop-record-button" disabled>Dừng Ghi Chuyến Đi</button>
+    </div>
+
+    <div class="trip-stats-box">
+      <h3>Thông Tin Chuyến Đi Đã Ghi</h3>
+      <p>Tổng quãng đường: <span id="total-distance">0.00</span> km</p>
+      <p>Tốc độ trung bình: <span id="avg-speed">0.00</span> km/h</p>
+      <p>Tốc độ cao nhất: <span id="max-speed">0.00</span> km/h</p>
+      <p>Tốc độ thấp nhất: <span id="min-speed">0.00</span> km/h</p>
+    </div>
 
     <div class="input-group">
       <label for="track-device-id-input">Nhập ID thiết bị cần theo dõi:</label>
@@ -193,7 +243,6 @@
     <p>ID thiết bị đang được theo dõi: <span id="firebase-receiving-id">Chưa chọn</span></p>
   </div>
 
-  <!-- Modal cho thông báo lỗi (thay thế alert) -->
   <div id="errorModal" class="modal">
     <div class="modal-content">
       <span class="close-button">&times;</span>
@@ -211,10 +260,8 @@
     </div>
   </div>
 
-  <!-- Link tới Leaflet JavaScript -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- JavaScript chính của ứng dụng (sử dụng type="module" cho Firebase SDK) -->
   <script type="module">
     // --- Nhập khẩu các hàm cần thiết từ Firebase SDK ---
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
@@ -230,7 +277,6 @@
       storageBucket: "ailearn-a396f.firebasestorage.app",
       messagingSenderId: "496727313294",
       appId: "1:496727313294:web:dfbc4df6a38a662bd7f2df",
-      // ĐÂY LÀ ĐIỂM THAY ĐỔI QUAN TRỌNG: Thêm databaseURL của bạn
       databaseURL: "https://ailearn-a396f-default-rtdb.asia-southeast1.firebasedatabase.app/"
     };
     const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
@@ -274,7 +320,7 @@
         console.log("Người dùng Firebase chưa đăng nhập hoặc đã đăng xuất.");
       }
       firebaseAuthReady = true;
-      initMapAndLocationTracking(); // Khởi tạo bản đồ và theo dõi sau khi Firebase sẵn sàng
+      initMapAndLocationTracking();
     });
 
     if (initialAuthToken) {
@@ -298,18 +344,30 @@
     let currentDeviceMarker = null;
     let currentDevicePolyline = null;
     let currentDevicePoints = [];
-    let myDeviceId = localStorage.getItem('myDeviceId') || crypto.randomUUID(); // Tạo ID duy nhất hoặc lấy từ localStorage
-    localStorage.setItem('myDeviceId', myDeviceId); // Lưu ID vào localStorage
+    let myDeviceId = localStorage.getItem('myDeviceId') || crypto.randomUUID();
+    localStorage.setItem('myDeviceId', myDeviceId);
 
     // --- Biến cho marker và quỹ đạo của thiết bị được theo dõi (máy nhận dữ liệu) ---
     let trackedDeviceMarker = null;
     let trackedDevicePolyline = null;
     let trackedDevicePoints = [];
-    let currentTrackedDeviceId = null; // ID của thiết bị đang được theo dõi
-    let firebaseListenerRef = null; // Biến để lưu trữ tham chiếu lắng nghe Firebase để có thể hủy nó
+    let currentTrackedDeviceId = null;
+    let firebaseListenerRef = null;
+
+    // --- Biến cho chức năng ghi chuyến đi ---
+    let isRecordingTrip = false;
+    let recordedTripPoints = []; // Mảng chứa {lat, lng, speed, timestamp} cho chuyến đi đã ghi
+    let recordedTripPolyline = null; // Polyline riêng cho chuyến đi đã ghi
+
+    // --- Các phần tử UI cho nút ghi và hiển thị thống kê chuyến đi ---
+    const startRecordButton = document.getElementById('start-record-button');
+    const stopRecordButton = document.getElementById('stop-record-button');
+    const totalDistanceSpan = document.getElementById('total-distance');
+    const avgSpeedSpan = document.getElementById('avg-speed');
+    const maxSpeedSpan = document.getElementById('max-speed');
+    const minSpeedSpan = document.getElementById('min-speed');
 
     // Định nghĩa đường dẫn Firebase cơ sở cho tất cả các thiết bị.
-    // Đường dẫn đầy đủ sẽ là: /artifacts/{appId}/public/data/{deviceId}
     const BASE_FIREBASE_PATH = `artifacts/${appId}/public/data/`;
 
     // --- Hàm gửi dữ liệu vị trí lên Firebase ---
@@ -325,7 +383,7 @@
           longitude: lng,
           speed: speed,
           timestamp: Date.now(),
-          senderUid: currentUserId // ID người dùng Firebase, không phải ID thiết bị
+          senderUid: currentUserId
         });
         console.log(`Dữ liệu của ${myDeviceId} đã được gửi lên Firebase.`, { lat, lng, speed, senderUid: currentUserId });
       } catch (error) {
@@ -335,14 +393,12 @@
 
     // --- Hàm bắt đầu lắng nghe vị trí của một thiết bị khác ---
     function startTrackingOtherDevice(deviceIdToTrack) {
-      // Hủy lắng nghe trước đó nếu có
       if (firebaseListenerRef) {
-        off(firebaseListenerRef); // Hủy lắng nghe cũ
+        off(firebaseListenerRef);
         firebaseListenerRef = null;
         console.log(`Đã hủy lắng nghe thiết bị ID: ${currentTrackedDeviceId}`);
       }
 
-      // Xóa marker và polyline của thiết bị được theo dõi cũ
       if (trackedDeviceMarker) {
         map.removeLayer(trackedDeviceMarker);
         trackedDeviceMarker = null;
@@ -351,12 +407,12 @@
         map.removeLayer(trackedDevicePolyline);
         trackedDevicePolyline = null;
       }
-      trackedDevicePoints = []; // Đặt lại mảng điểm
+      trackedDevicePoints = [];
 
       currentTrackedDeviceId = deviceIdToTrack;
       document.getElementById('firebase-receiving-id').textContent = currentTrackedDeviceId;
       const otherDevicePath = `${BASE_FIREBASE_PATH}${currentTrackedDeviceId}`;
-      firebaseListenerRef = ref(db, otherDevicePath); // Tạo tham chiếu mới
+      firebaseListenerRef = ref(db, otherDevicePath);
 
       onValue(firebaseListenerRef, (snapshot) => {
         const data = snapshot.val();
@@ -393,11 +449,10 @@
           }
 
           console.log(`Đã nhận dữ liệu từ Firebase cho ID ${currentTrackedDeviceId}:`, data);
-          map.setView([latitude, longitude], 15); // Căn giữa bản đồ vào thiết bị đang theo dõi
+          map.setView([latitude, longitude], 15);
         } else {
           console.log(`Không tìm thấy dữ liệu cho thiết bị ID ${currentTrackedDeviceId} tại: ${otherDevicePath}`);
           showModal(`Không tìm thấy dữ liệu cho ID thiết bị: ${currentTrackedDeviceId}. Vui lòng kiểm tra lại ID.`);
-          // Xóa marker/polyline nếu dữ liệu biến mất
           if (trackedDeviceMarker) {
             map.removeLayer(trackedDeviceMarker);
             trackedDeviceMarker = null;
@@ -414,9 +469,76 @@
       });
     }
 
+    // --- Hàm tính toán và hiển thị thống kê chuyến đi ---
+    function calculateTripStats() {
+      let totalDistance = 0; // meters
+      let maxSpeed = 0; // km/h
+      let minSpeed = Infinity; // km/h
+      let totalSpeedSum = 0; // km/h
+      let speedPointCount = 0;
+
+      if (recordedTripPoints.length > 1) {
+        for (let i = 1; i < recordedTripPoints.length; i++) {
+          const p1 = recordedTripPoints[i - 1];
+          const p2 = recordedTripPoints[i];
+          // Tính khoảng cách giữa hai điểm liên tiếp (bằng mét)
+          totalDistance += L.latLng(p1.lat, p1.lng).distanceTo(L.latLng(p2.lat, p2.lng));
+
+          // Cập nhật tốc độ cao nhất
+          maxSpeed = Math.max(maxSpeed, p2.speed);
+
+          // Cập nhật tốc độ thấp nhất (chỉ xét tốc độ > 0) và tổng tốc độ cho trung bình
+          if (p2.speed > 0) {
+            minSpeed = Math.min(minSpeed, p2.speed);
+            totalSpeedSum += p2.speed;
+            speedPointCount++;
+          }
+        }
+      }
+
+      // Chuyển tổng quãng đường từ mét sang kilomet
+      totalDistanceSpan.textContent = (totalDistance / 1000).toFixed(2);
+      maxSpeedSpan.textContent = maxSpeed.toFixed(2);
+
+      // Tính tốc độ trung bình
+      avgSpeedSpan.textContent = (speedPointCount > 0 ? (totalSpeedSum / speedPointCount) : 0).toFixed(2);
+      
+      // Xử lý trường hợp không có tốc độ nào > 0 (người dùng đứng yên)
+      minSpeedSpan.textContent = (minSpeed === Infinity ? 0.00 : minSpeed).toFixed(2);
+    }
+
+    // --- Hàm bắt đầu ghi chuyến đi ---
+    startRecordButton.addEventListener('click', () => {
+      isRecordingTrip = true;
+      recordedTripPoints = []; // Xóa dữ liệu chuyến đi cũ
+      
+      // Xóa polyline cũ nếu có
+      if (recordedTripPolyline) {
+        map.removeLayer(recordedTripPolyline);
+      }
+      recordedTripPolyline = null;
+
+      // Cập nhật UI
+      startRecordButton.disabled = true;
+      stopRecordButton.disabled = false;
+      totalDistanceSpan.textContent = '0.00';
+      avgSpeedSpan.textContent = '0.00';
+      maxSpeedSpan.textContent = '0.00';
+      minSpeedSpan.textContent = '0.00';
+      document.querySelector('.info-box p strong').textContent = "Đang ghi chuyến đi...";
+    });
+
+    // --- Hàm dừng ghi chuyến đi ---
+    stopRecordButton.addEventListener('click', () => {
+      isRecordingTrip = false;
+      startRecordButton.disabled = false;
+      stopRecordButton.disabled = true;
+      document.querySelector('.info-box p strong').textContent = "Đã dừng ghi chuyến đi.";
+      calculateTripStats(); // Tính toán và hiển thị thống kê
+    });
+
     // --- Khởi tạo theo dõi vị trí và logic bản đồ ---
     function initMapAndLocationTracking() {
-      // Hiển thị ID của thiết bị hiện tại
       document.getElementById('my-device-id').textContent = myDeviceId;
 
       if (!navigator.geolocation) {
@@ -432,13 +554,14 @@
 
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
-        const speed = (position.coords.speed || 0) * 3.6;
+        const speed = (position.coords.speed || 0) * 3.6; // m/s to km/h
 
         document.getElementById('current-lat').textContent = lat.toFixed(5);
         document.getElementById('current-lng').textContent = lng.toFixed(5);
         document.getElementById('current-speed').textContent = speed.toFixed(2);
         document.querySelector('.info-box p strong').textContent = "Đang theo dõi vị trí của bạn...";
 
+        // Cập nhật marker và polyline của thiết bị hiện tại
         currentDevicePoints.push([lat, lng]);
         if (currentDeviceMarker) {
           currentDeviceMarker.setLatLng([lat, lng]);
@@ -466,6 +589,24 @@
         }
 
         sendToFirebase(lat, lng, speed);
+
+        // --- Ghi lại dữ liệu cho chuyến đi nếu đang trong chế độ ghi ---
+        if (isRecordingTrip) {
+          recordedTripPoints.push({ lat, lng, speed, timestamp: Date.now() });
+
+          // Cập nhật polyline cho chuyến đi đã ghi (sử dụng màu khác để phân biệt, ví dụ: cam)
+          const tripLatLngs = recordedTripPoints.map(p => [p.lat, p.lng]);
+          if (recordedTripPolyline) {
+            recordedTripPolyline.setLatLngs(tripLatLngs);
+          } else {
+            recordedTripPolyline = L.polyline(tripLatLngs, {
+              color: '#FF7F00', // Màu cam cho chuyến đi đã ghi
+              weight: 6, // Hơi dày hơn
+              opacity: 0.9,
+              lineCap: 'round'
+            }).addTo(map);
+          }
+        }
 
       }, (error) => {
         console.error("Lỗi khi lấy vị trí:", error);
@@ -496,7 +637,7 @@
       });
     }
 
-    // --- Xử lý sự kiện khi click nút "Bắt Đầu Theo Dõi" ---
+    // --- Xử lý sự kiện khi click nút "Bắt Đầu Theo Dõi Thiết Bị Khác" ---
     document.getElementById('start-tracking-button').addEventListener('click', () => {
       const deviceIdToTrack = document.getElementById('track-device-id-input').value.trim();
       if (deviceIdToTrack) {
