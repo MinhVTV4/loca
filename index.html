@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Theo Dõi Vị Trí Thời Gian Thực</title>
+  <!-- Link tới Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <!-- Google Font: Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* Kiểu dáng cơ bản cho body */
+    body {
+      font-family: 'Inter', sans-serif; /* Sử dụng font Inter */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 20px;
+      background-color: #f0f2f5; /* Màu nền xám nhạt */
+      color: #333;
+      min-height: 100vh; /* Đảm bảo body chiếm toàn bộ chiều cao màn hình */
+      overflow-x: hidden; /* Tránh scroll ngang */
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    /* Kiểu dáng cho thẻ div bản đồ */
+    #map {
+      height: 80vh; /* Chiếm 80% chiều cao viewport */
+      width: 95%; /* Chiếm 95% chiều rộng của parent container */
+      max-width: 800px; /* Giới hạn chiều rộng tối đa */
+      border-radius: 12px; /* Bo tròn các góc */
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15); /* Đổ bóng sâu hơn */
+      margin-bottom: 20px;
+      background-color: #e0e0e0; /* Màu nền nhẹ cho map khi load */
+    }
+
+    /* Kiểu dáng cho hộp thông tin */
+    .info-box {
+      background-color: #ffffff;
+      padding: 20px 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      width: 95%;
+      max-width: 800px;
+      text-align: center;
+      color: #555;
+      line-height: 1.6;
+    }
+
+    .info-box p {
+      margin: 8px 0;
+      font-size: 1.1em;
+    }
+
+    .info-box strong {
+      color: #2c3e50;
+    }
+
+    .info-box span {
+      font-weight: 600;
+      color: #007BFF; /* Màu xanh nổi bật cho dữ liệu */
+    }
+
+    /* Modal cho thông báo lỗi */
+    .modal {
+      display: none; /* Ẩn theo mặc định */
+      position: fixed; /* Ở trên cùng */
+      z-index: 1000; /* Nổi lên trên cùng */
+      left: 0;
+      top: 0;
+      width: 100%; /* Chiếm toàn bộ chiều rộng */
+      height: 100%; /* Chiếm toàn bộ chiều cao */
+      overflow: auto; /* Cho phép cuộn nếu cần */
+      background-color: rgba(0,0,0,0.4); /* Nền mờ */
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-content {
+      background-color: #fefefe;
+      margin: auto;
+      padding: 20px;
+      border: 1px solid #888;
+      width: 80%;
+      max-width: 400px;
+      border-radius: 10px;
+      text-align: center;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+      position: relative; /* Cho nút đóng */
+    }
+
+    .close-button {
+      color: #aaa;
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+      position: absolute;
+      top: 10px;
+      right: 15px;
+    }
+
+    .close-button:hover,
+    .close-button:focus {
+      color: black;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      #map {
+        height: 70vh; /* Giảm chiều cao bản đồ trên thiết bị nhỏ */
+      }
+      .info-box {
+        padding: 15px 20px;
+        font-size: 0.9em;
+      }
+      .modal-content {
+        width: 90%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Ứng Dụng Theo Dõi Vị Trí Thời Gian Thực</h1>
+
+  <!-- Vùng hiển thị bản đồ -->
+  <div id="map"></div>
+
+  <!-- Hộp thông tin để hiển thị tọa độ và tốc độ -->
+  <div class="info-box">
+    <p>Trạng thái: <strong>Đang chờ vị trí...</strong></p>
+    <p>Vị trí hiện tại của bạn:</p>
+    <p>Vĩ độ: <span id="current-lat">N/A</span>, Kinh độ: <span id="current-lng">N/A</span></p>
+    <p>Tốc độ: <span id="current-speed">N/A</span> km/h</p>
+    <p>Thiết bị gửi dữ liệu đến ID: <span id="firebase-sending-id">myDeviceId</span></p>
+    <p>Thiết bị nhận dữ liệu từ ID: <span id="firebase-receiving-id">myDeviceId</span></p>
+  </div>
+
+  <!-- Modal cho thông báo lỗi (thay thế alert) -->
+  <div id="errorModal" class="modal">
+    <div class="modal-content">
+      <span class="close-button">&times;</span>
+      <h2>Lỗi Vị Trí</h2>
+      <p id="modalMessage"></p>
+      <p>Vui lòng kiểm tra các mục sau:</p>
+      <ul>
+        <li>Đảm bảo bạn đã cấp quyền truy cập vị trí cho trình duyệt/ứng dụng này.</li>
+        <li>Bật GPS (dịch vụ vị trí) trên thiết bị của bạn.</li>
+        <li>Thử di chuyển ra ngoài trời hoặc đến nơi có tín hiệu GPS tốt hơn.</li>
+        <li>Tải lại trang.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Link tới Leaflet JavaScript -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- JavaScript chính của ứng dụng (sử dụng type="module" cho Firebase SDK) -->
+  <script type="module">
+    // --- Nhập khẩu các hàm cần thiết từ Firebase SDK ---
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+
+    // --- Biến toàn cục được cung cấp bởi môi trường Canvas (nếu có) ---
+    // app_id: ID của ứng dụng hiện tại, dùng để xây dựng đường dẫn Firebase.
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    // firebaseConfig: Cấu hình Firebase để khởi tạo ứng dụng.
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+      apiKey: "AIzaSyA-pE9TSiWYIiBinEqqugeJZvj-YO_5Ms4",
+      authDomain: "ailearn-a396f.firebaseapp.com",
+      projectId: "ailearn-a396f",
+      storageBucket: "ailearn-a396f.firebasestorage.app",
+      messagingSenderId: "496727313294",
+      appId: "1:496727313294:web:dfbc4df6a38a662bd7f2df"
+    };
+    // initialAuthToken: Token xác thực Firebase tùy chỉnh ban đầu.
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+    // --- Khởi tạo Firebase ---
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app); // Lấy đối tượng Database
+    const auth = getAuth(app);   // Lấy đối tượng Authentication
+
+    let currentUserId = 'anonymous'; // ID người dùng hiện tại, mặc định là ẩn danh
+    let firebaseAuthReady = false;   // Cờ kiểm tra trạng thái xác thực Firebase
+
+    // --- Hàm hiển thị modal lỗi (thay thế alert) ---
+    function showModal(message) {
+      const modal = document.getElementById('errorModal');
+      const modalMessage = document.getElementById('modalMessage');
+      modalMessage.textContent = message;
+      modal.style.display = 'flex'; // Hiển thị modal
+    }
+
+    // --- Đóng modal khi click nút đóng hoặc bên ngoài nội dung modal ---
+    const modal = document.getElementById('errorModal');
+    const closeButton = document.getElementsByClassName('close-button')[0];
+    if (closeButton) {
+      closeButton.onclick = function() {
+        modal.style.display = 'none';
+      }
+    }
+    window.onclick = function(event) {
+      if (event.target == modal) {
+        modal.style.display = 'none';
+      }
+    }
+
+    // --- Xử lý xác thực Firebase ---
+    // Lắng nghe thay đổi trạng thái xác thực
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        currentUserId = user.uid; // Cập nhật ID người dùng nếu đã đăng nhập
+        console.log("Firebase đã xác thực với UID:", currentUserId);
+      } else {
+        console.log("Người dùng Firebase chưa đăng nhập hoặc đã đăng xuất.");
+      }
+      firebaseAuthReady = true; // Đặt cờ là true khi xác thực đã sẵn sàng
+      // Khi xác thực đã sẵn sàng, tiến hành khởi tạo bản đồ và theo dõi vị trí
+      initMapAndLocationTracking();
+    });
+
+    // Cố gắng đăng nhập với token tùy chỉnh hoặc đăng nhập ẩn danh
+    if (initialAuthToken) {
+      signInWithCustomToken(auth, initialAuthToken).catch((error) => {
+        console.error("Lỗi khi đăng nhập bằng token tùy chỉnh:", error);
+        // showModal(`Lỗi đăng nhập Firebase: ${error.message}. Đang thử đăng nhập ẩn danh.`);
+        signInAnonymously(auth); // Fallback sang đăng nhập ẩn danh nếu token lỗi
+      });
+    } else {
+      signInAnonymously(auth).catch((error) => {
+        console.error("Lỗi khi đăng nhập ẩn danh:", error);
+        // showModal(`Lỗi đăng nhập ẩn danh Firebase: ${error.message}.`);
+      });
+    }
+
+    // --- Khởi tạo bản đồ Leaflet ---
+    // Đặt view mặc định của bản đồ tại TP.HCM (hoặc vị trí mong muốn)
+    const map = L.map('map').setView([10.779, 106.699], 13);
+    // Thêm lớp bản đồ từ OpenStreetMap
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // --- Các biến cho marker và quỹ đạo của thiết bị hiện tại ---
+    let currentDeviceMarker = null; // Marker cho vị trí hiện tại của thiết bị
+    let currentDevicePolyline = null; // Quỹ đạo di chuyển của thiết bị
+    let currentDevicePoints = [];     // Mảng các điểm để vẽ quỹ đạo
+
+    // --- Các biến cho marker và quỹ đạo của thiết bị được theo dõi (thiết bị khác) ---
+    // Trong ví dụ này, chúng ta sẽ theo dõi chính ID mà thiết bị này gửi lên
+    let trackedDeviceMarker = null;
+    let trackedDevicePolyline = null;
+    let trackedDevicePoints = [];
+
+    // Định nghĩa đường dẫn Firebase để lưu/đọc dữ liệu.
+    // Sử dụng đường dẫn 'public/data' để dữ liệu có thể được truy cập chung.
+    // Đường dẫn đầy đủ sẽ là: /artifacts/{appId}/public/data/myDeviceId
+    const FIREBASE_DEVICE_ID = 'myDeviceId'; // ID định danh thiết bị trong Firebase
+    const MY_DEVICE_FIREBASE_PATH = `artifacts/${appId}/public/data/${FIREBASE_DEVICE_ID}`;
+
+    // --- Hàm gửi dữ liệu vị trí lên Firebase ---
+    function sendToFirebase(lat, lng, speed) {
+      // Chỉ gửi dữ liệu khi Firebase đã được xác thực và có userId
+      if (!firebaseAuthReady || currentUserId === 'anonymous') {
+        console.warn("Firebase authentication chưa sẵn sàng hoặc không có userId. Bỏ qua việc gửi dữ liệu.");
+        return;
+      }
+      try {
+        // Gửi dữ liệu lên Firebase Realtime Database
+        set(ref(db, MY_DEVICE_FIREBASE_PATH), {
+          latitude: lat,
+          longitude: lng,
+          speed: speed, // Tốc độ đã được chuyển đổi sang km/h
+          timestamp: Date.now(), // Thời gian gửi dữ liệu
+          senderUid: currentUserId // Thêm ID người gửi để tiện theo dõi
+        });
+        console.log("Dữ liệu đã được gửi lên Firebase:", { lat, lng, speed, senderUid: currentUserId });
+      } catch (error) {
+        console.error("Lỗi khi gửi dữ liệu lên Firebase:", error);
+      }
+    }
+
+    // --- Khởi tạo theo dõi vị trí và logic bản đồ ---
+    function initMapAndLocationTracking() {
+      // Kiểm tra hỗ trợ Geolocation của trình duyệt
+      if (!navigator.geolocation) {
+        document.querySelector('.info-box p strong').textContent = "Lỗi: Trình duyệt của bạn không hỗ trợ Geolocation.";
+        showModal("Trình duyệt của bạn không hỗ trợ Geolocation.");
+        return;
+      }
+
+      // Cập nhật ID thiết bị trong UI
+      document.getElementById('firebase-sending-id').textContent = FIREBASE_DEVICE_ID;
+      document.getElementById('firebase-receiving-id').textContent = FIREBASE_DEVICE_ID;
+      document.querySelector('.info-box p strong').textContent = "Đang lấy vị trí...";
+
+
+      // --- Theo dõi vị trí thời gian thực (Bên gửi) ---
+      navigator.geolocation.watchPosition((position) => {
+        // Đảm bảo modal lỗi đã được đóng nếu trước đó có lỗi
+        document.getElementById('errorModal').style.display = 'none';
+
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        // Chuyển đổi tốc độ từ m/s sang km/h (nếu có, mặc định là 0)
+        const speed = (position.coords.speed || 0) * 3.6;
+
+        // Cập nhật UI hiển thị vị trí và tốc độ hiện tại
+        document.getElementById('current-lat').textContent = lat.toFixed(5);
+        document.getElementById('current-lng').textContent = lng.toFixed(5);
+        document.getElementById('current-speed').textContent = speed.toFixed(2);
+        document.querySelector('.info-box p strong').textContent = "Đang theo dõi vị trí...";
+
+
+        // Cập nhật marker và quỹ đạo của thiết bị hiện tại (màu xanh lá cây)
+        currentDevicePoints.push([lat, lng]);
+        if (currentDeviceMarker) {
+          currentDeviceMarker.setLatLng([lat, lng]);
+        } else {
+          // Tạo marker với icon tùy chỉnh (hình tròn xanh lá)
+          currentDeviceMarker = L.marker([lat, lng], {
+            icon: L.divIcon({
+              className: 'custom-div-icon-current',
+              html: '<div style="background-color:#4CAF50; width:20px; height:20px; border-radius:50%; border:3px solid white; box-shadow:0 0 8px rgba(0,0,0,0.4);"></div>',
+              iconSize: [26, 26], // Kích thước icon
+              iconAnchor: [13, 13] // Điểm neo của icon
+            })
+          }).addTo(map);
+          currentDeviceMarker.bindPopup('Vị trí của bạn').openPopup();
+        }
+        // Cập nhật nội dung popup của marker
+        currentDeviceMarker.setPopupContent(`Vị trí của bạn<br>Tốc độ: ${speed.toFixed(2)} km/h`);
+
+        // Cập nhật hoặc tạo polyline (quỹ đạo)
+        if (currentDevicePolyline) {
+          currentDevicePolyline.setLatLngs(currentDevicePoints);
+        } else {
+          currentDevicePolyline = L.polyline(currentDevicePoints, {
+            color: '#4CAF50', // Màu xanh lá cho quỹ đạo thiết bị hiện tại
+            weight: 5,
+            opacity: 0.8
+          }).addTo(map);
+        }
+
+        // Căn giữa bản đồ tại vị trí hiện tại của thiết bị
+        map.setView([lat, lng], 15);
+
+        // Gửi dữ liệu vị trí và tốc độ lên Firebase
+        sendToFirebase(lat, lng, speed);
+
+      }, (error) => {
+        // Xử lý lỗi khi không thể lấy vị trí
+        console.error("Lỗi khi lấy vị trí:", error);
+        let errorMessage = "Không thể lấy vị trí.";
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = "Bạn đã từ chối quyền truy cập vị trí.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Thông tin vị trí không khả dụng.";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "Yêu cầu lấy vị trí đã hết thời gian.";
+            break;
+          case error.UNKNOWN_ERROR:
+            errorMessage = "Đã xảy ra lỗi không xác định.";
+            break;
+        }
+        document.querySelector('.info-box p strong').textContent = `Lỗi: ${errorMessage}`;
+        document.getElementById('current-lat').textContent = 'Error';
+        document.getElementById('current-lng').textContent = 'Error';
+        document.getElementById('current-speed').textContent = 'Error';
+
+        // Hiển thị modal thông báo lỗi
+        showModal(errorMessage);
+
+      }, {
+        enableHighAccuracy: true, // Yêu cầu độ chính xác cao
+        maximumAge: 0,            // Không sử dụng cache vị trí cũ
+        timeout: 10000             // Tăng thời gian chờ tối đa lên 10 giây
+      });
+
+      // --- Hiển thị tại thiết bị khác (Bên nhận) ---
+      // Lắng nghe dữ liệu từ cùng một đường dẫn Firebase mà thiết bị này đang gửi lên
+      // Để mô phỏng "thiết bị khác", chúng ta vẫn dùng MY_DEVICE_FIREBASE_PATH.
+      // Trong ứng dụng thực tế, bạn có thể thay đổi để lắng nghe ID của thiết bị khác.
+      const otherDeviceRef = ref(db, MY_DEVICE_FIREBASE_PATH);
+
+      onValue(otherDeviceRef, (snapshot) => {
+        const data = snapshot.val(); // Lấy dữ liệu từ snapshot
+        if (data) {
+          const { latitude, longitude, speed, timestamp, senderUid } = data;
+          const currentSpeed = (speed || 0).toFixed(2); // Tốc độ đã là km/h
+
+          // Cập nhật marker và quỹ đạo cho thiết bị được theo dõi (màu xanh dương)
+          trackedDevicePoints.push([latitude, longitude]);
+
+          if (trackedDeviceMarker) {
+            trackedDeviceMarker.setLatLng([latitude, longitude]);
+            trackedDeviceMarker.setPopupContent(`Vị trí được theo dõi<br>Tốc độ: ${currentSpeed} km/h`);
+          } else {
+            // Tạo marker với icon tùy chỉnh (hình tròn xanh dương)
+            trackedDeviceMarker = L.marker([latitude, longitude], {
+              icon: L.divIcon({
+                className: 'custom-div-icon-tracked',
+                html: '<div style="background-color:#007BFF; width:20px; height:20px; border-radius:50%; border:3px solid white; box-shadow:0 0 8px rgba(0,0,0,0.4);"></div>',
+                iconSize: [26, 26],
+                iconAnchor: [13, 13]
+              })
+            }).addTo(map);
+            trackedDeviceMarker.bindPopup(`Vị trí được theo dõi<br>Tốc độ: ${currentSpeed} km/h`).openPopup();
+          }
+
+          // Cập nhật hoặc tạo polyline cho thiết bị được theo dõi
+          if (trackedDevicePolyline) {
+            trackedDevicePolyline.setLatLngs(trackedDevicePoints);
+          } else {
+            trackedDevicePolyline = L.polyline(trackedDevicePoints, {
+              color: '#007BFF', // Màu xanh dương cho quỹ đạo thiết bị được theo dõi
+              weight: 3,
+              opacity: 0.7,
+              dashArray: '5, 10' // Đường nét đứt để phân biệt
+            }).addTo(map);
+          }
+
+          console.log("Đã nhận dữ liệu từ Firebase:", data);
+        } else {
+          console.log("Không tìm thấy dữ liệu cho thiết bị được theo dõi tại:", MY_DEVICE_FIREBASE_PATH);
+        }
+      }, (error) => {
+        // Xử lý lỗi khi không thể lấy dữ liệu từ Firebase
+        console.error("Lỗi khi lấy dữ liệu từ Firebase:", error);
+        document.querySelector('.info-box p strong').textContent = `Lỗi Firebase: ${error.message}`;
+        showModal(`Lỗi Firebase: ${error.message}. Vui lòng kiểm tra kết nối mạng và cấu hình Firebase.`);
+      });
+    }
+  </script>
+</body>
+</html>
