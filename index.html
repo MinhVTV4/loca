@@ -205,6 +205,7 @@
         <li>Bật GPS (dịch vụ vị trí) trên thiết bị của bạn.</li>
         <li>Thử di chuyển ra ngoài trời hoặc đến nơi có tín hiệu GPS tốt hơn.</li>
         <li>Kiểm tra xem ID thiết bị có đúng không.</li>
+        <li>Kiểm tra <a href="https://console.firebase.google.com/project/ailearn-a396f/database/ailearn-a396f-default-rtdb/rules" target="_blank" style="color: #007BFF; text-decoration: underline;">quy tắc bảo mật Realtime Database</a>.</li>
         <li>Tải lại trang.</li>
       </ul>
     </div>
@@ -217,7 +218,7 @@
   <script type="module">
     // --- Nhập khẩu các hàm cần thiết từ Firebase SDK ---
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
-    import { getDatabase, ref, set, onValue, off } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js"; // Thêm off để hủy lắng nghe
+    import { getDatabase, ref, set, onValue, off } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
     import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
 
     // --- Biến toàn cục được cung cấp bởi môi trường Canvas (nếu có) ---
@@ -228,7 +229,9 @@
       projectId: "ailearn-a396f",
       storageBucket: "ailearn-a396f.firebasestorage.app",
       messagingSenderId: "496727313294",
-      appId: "1:496727313294:web:dfbc4df6a38a662bd7f2df"
+      appId: "1:496727313294:web:dfbc4df6a38a662bd7f2df",
+      // ĐÂY LÀ ĐIỂM THAY ĐỔI QUAN TRỌNG: Thêm databaseURL của bạn
+      databaseURL: "https://ailearn-a396f-default-rtdb.asia-southeast1.firebasedatabase.app/"
     };
     const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
@@ -462,10 +465,6 @@
           }).addTo(map);
         }
 
-        // Không tự động căn giữa bản đồ vào vị trí của chính nó nữa
-        // mà sẽ căn giữa vào thiết bị đang được theo dõi (nếu có)
-        // map.setView([lat, lng], 15);
-
         sendToFirebase(lat, lng, speed);
 
       }, (error) => {
@@ -506,12 +505,6 @@
         showModal("Vui lòng nhập ID thiết bị cần theo dõi.");
       }
     });
-
-    // Khi ứng dụng tải, tự động theo dõi chính nó (mặc định)
-    // Để cho phép người dùng nhập ID, chúng ta không gọi startTrackingOtherDevice ở đây nữa.
-    // Thay vào đó, người dùng sẽ nhấn nút "Bắt Đầu Theo Dõi" sau khi nhập ID.
-    // Hoặc bạn có thể gọi nó với ID mặc định ban đầu nếu muốn.
-    // Ví dụ: startTrackingOtherDevice(myDeviceId); // Tự theo dõi chính mình khi khởi động
   </script>
 </body>
 </html>
