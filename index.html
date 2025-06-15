@@ -189,19 +189,10 @@
       border-bottom: 1px dashed #e0e0e0;
       display: flex;
       flex-direction: column;
-      cursor: pointer; /* Cho biết có thể click */
-      transition: background-color 0.2s ease;
-    }
-    #tracked-devices-list li:hover {
-        background-color: #e9e9e9;
     }
 
     #tracked-devices-list li:last-child {
       border-bottom: none;
-    }
-
-    #tracked-devices-list li .device-info {
-        flex-grow: 1;
     }
 
     #tracked-devices-list li .device-name {
@@ -213,27 +204,6 @@
       font-size: 0.85em;
       color: #777;
       word-break: break-all;
-    }
-    #tracked-devices-list li .delete-button {
-        background-color: #dc3545;
-        color: white;
-        border: none;
-        padding: 5px 10px;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 0.8em;
-        margin-left: 10px;
-        align-self: flex-start; /* Canh nút lên đầu hàng nếu nội dung dài */
-        transition: background-color 0.2s ease;
-    }
-    #tracked-devices-list li .delete-button:hover {
-        background-color: #c82333;
-    }
-    #tracked-devices-list li .row {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start; /* Canh trên cho các thành phần trong hàng */
-        width: 100%;
     }
 
 
@@ -370,8 +340,8 @@
   <script type="module">
     // --- Import the functions you need from the SDKs you need ---
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
-    // Firestore imports (collection, query, deleteDoc added)
-    import { getFirestore, doc, setDoc, onSnapshot, collection, query, deleteDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    // Firestore imports (collection and query added)
+    import { getFirestore, doc, setDoc, onSnapshot, collection, query } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
     // Auth imports
     import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
 
@@ -513,25 +483,6 @@
       }
     }
 
-    // --- Function to delete a device's data from Firestore ---
-    async function deleteDeviceFromFirestore(deviceIdToDelete) {
-        if (!firebaseAuthReady || !currentUserId || currentUserId === 'anonymous') {
-            showModal("Bạn cần đăng nhập để thực hiện thao tác này.");
-            return;
-        }
-        if (confirm(`Bạn có chắc muốn xóa dữ liệu của thiết bị ID: ${deviceIdToDelete} không? Hành động này không thể hoàn tác.`)) {
-            try {
-                const deviceDocRef = doc(db, BASE_FIRESTORE_COLLECTION_PATH_PREFIX, deviceIdToDelete);
-                await deleteDoc(deviceDocRef);
-                console.log(`Successfully deleted device data for ID: ${deviceIdToDelete}`);
-                showModal(`Đã xóa dữ liệu của thiết bị ID: ${deviceIdToDelete}`);
-            } catch (error) {
-                console.error("Error deleting device data from Firestore:", error);
-                showModal(`Lỗi khi xóa dữ liệu của thiết bị ID ${deviceIdToDelete}: ${error.message}. Vui lòng kiểm tra quyền Firestore.`);
-            }
-        }
-    }
-
     // --- Function to start listening for all active devices from Firestore ---
     function startTrackingAllDevices() {
       // Unsubscribe from previous listener if active
@@ -616,34 +567,13 @@
             device.marker.bindPopup(`Tên: ${displayDeviceName}<br>ID: ${deviceId}<br>Tốc độ: ${currentSpeed} km/h`).openPopup();
           }
 
-          // Update list UI (recreating to ensure proper order and event listeners)
+          // Update list UI
           const listItem = document.createElement('li');
-          listItem.dataset.deviceId = deviceId; // Store ID on the element
-          listItem.classList.add('row'); // For flexbox styling
-          
-          const deviceInfoDiv = document.createElement('div');
-          deviceInfoDiv.classList.add('device-info');
-          deviceInfoDiv.innerHTML = `<span class="device-name">${displayDeviceName}</span><br><span class="device-id">${deviceId}</span>`;
-          listItem.appendChild(deviceInfoDiv);
-
-          const deleteButton = document.createElement('button');
-          deleteButton.classList.add('delete-button');
-          deleteButton.textContent = 'Xóa';
-          deleteButton.onclick = (e) => {
-              e.stopPropagation(); // Prevent listItem click when button is clicked
-              deleteDeviceFromFirestore(deviceId);
-          };
-          listItem.appendChild(deleteButton);
-
-          listItem.onclick = () => {
-              if (device.marker) {
-                  map.setView(device.marker.getLatLng(), 15); // Center map on click
-              }
-          };
+          listItem.innerHTML = `<span class="device-name">${displayDeviceName}</span><br><span class="device-id">${deviceId}</span>`;
           activeDevicesUl.appendChild(listItem);
 
           // Center map on the last updated tracked device (optional, can remove if you prefer fixed view)
-          // map.setView([latitude, longitude], map.getZoom()); // Remove this if you don't want auto-centering
+          map.setView([latitude, longitude], map.getZoom());
         });
 
         // Remove devices that are no longer in the snapshot (e.g., went offline or data deleted)
@@ -832,7 +762,7 @@
 
       }, (error) => {
         console.error("Error getting location:", error);
-        console.error("Đối tượng lỗi định vị:", error);
+        console.error("Đối tượng lỗi định vị:", error); // Added debug log for error object
         let errorMessage = "Không thể lấy vị trí.";
         switch(error.code) {
           case error.PERMISSION_DENIED:
