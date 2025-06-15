@@ -131,9 +131,7 @@
       width: 100%;
     }
 
-    .input-group input[type="text"],
-    .input-group input[type="email"],
-    .input-group input[type="password"] {
+    .input-group input[type="text"] {
       padding: 10px 15px;
       border: 1px solid #ccc;
       border-radius: 8px;
@@ -159,66 +157,6 @@
       background-color: #0056b3;
       transform: translateY(-2px);
     }
-
-    /* Auth section styles */
-    #auth-section {
-      background-color: #e6f7ff; /* Light blue background */
-      padding: 20px;
-      border-radius: 12px;
-      margin-bottom: 20px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
-      max-width: 800px;
-      width: 95%;
-    }
-
-    #auth-section h2 {
-      color: #0056b3;
-      margin-bottom: 15px;
-    }
-
-    #auth-status-display {
-      margin-top: 15px;
-      font-size: 1em;
-      color: #333;
-    }
-
-    #auth-status-display span {
-      font-weight: 600;
-      color: #007BFF;
-      word-break: break-all;
-    }
-
-    .auth-buttons-group {
-        display: flex;
-        gap: 10px;
-        justify-content: center;
-        margin-top: 15px;
-        flex-wrap: wrap;
-    }
-
-    .auth-buttons-group button {
-        padding: 8px 15px;
-        font-size: 0.95em;
-        border-radius: 6px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    #login-button, #register-button {
-        background-color: #007BFF;
-        color: white;
-    }
-    #login-button:hover, #register-button:hover {
-        background-color: #0056b3;
-    }
-
-    #logout-button {
-        background-color: #f0ad4e; /* Orange */
-        color: white;
-    }
-    #logout-button:hover {
-        background-color: #ec971f;
-    }
-
 
     /* List of tracked devices */
     #tracked-devices-list {
@@ -365,28 +303,11 @@
 <body>
   <h1>Ứng Dụng Theo Dõi Vị Trí Thời Gian Thực</h1>
 
-  <!-- Phần Xác thực Người dùng -->
-  <div id="auth-section" class="info-box">
-    <h2>Xác thực Người dùng</h2>
-    <div class="input-group">
-      <label for="auth-email">Email:</label>
-      <input type="email" id="auth-email" placeholder="example@example.com">
-      <label for="auth-password">Mật khẩu:</label>
-      <input type="password" id="auth-password" placeholder="******">
-    </div>
-    <div class="auth-buttons-group">
-      <button id="register-button">Đăng ký</button>
-      <button id="login-button">Đăng nhập</button>
-      <button id="logout-button" style="display: none;">Đăng xuất</button>
-    </div>
-    <p id="auth-status-display">Trạng thái: <span id="current-auth-user">Chưa đăng nhập</span></p>
-  </div>
-
   <!-- Vùng hiển thị bản đồ -->
-  <div id="map" class="content-restricted"></div>
+  <div id="map"></div>
 
   <!-- Hộp thông tin để hiển thị tọa độ và tốc độ -->
-  <div class="info-box content-restricted">
+  <div class="info-box">
     <p>Trạng thái: <strong>Đang chờ vị trí...</strong></p>
     <p>Vị trí hiện tại của bạn:</p>
     <p>Vĩ độ: <span id="current-lat">N/A</span>, Kinh độ: <span id="current-lng">N/A</span></p>
@@ -452,7 +373,7 @@
     // Firestore imports (collection, query, deleteDoc added)
     import { getFirestore, doc, setDoc, onSnapshot, collection, query, deleteDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
     // Auth imports
-    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
 
     // --- Global variables provided by the Canvas environment (if available) ---
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; // Use default if not in Canvas env
@@ -471,18 +392,8 @@
     const db = getFirestore(app); // Get Firestore instance
     const auth = getAuth(app);   // Get Auth instance
 
-    let currentUserId = 'anonymous'; // Will be actual UID if logged in
+    let currentUserId = 'anonymous';
     let firebaseAuthReady = false;
-    let locationWatchId = null; // To store watchPosition ID for clearing
-
-    // --- UI Elements for Auth ---
-    const authEmailInput = document.getElementById('auth-email');
-    const authPasswordInput = document.getElementById('auth-password');
-    const registerButton = document.getElementById('register-button');
-    const loginButton = document.getElementById('login-button');
-    const logoutButton = document.getElementById('logout-button');
-    const currentAuthUserSpan = document.getElementById('current-auth-user');
-    const restrictedContent = document.querySelectorAll('.content-restricted'); // Elements visible only when logged in
 
     // --- Function to show modal message ---
     function showModal(message) {
@@ -510,61 +421,16 @@
     onAuthStateChanged(auth, async (user) => {
       if (user) {
         currentUserId = user.uid;
-        currentAuthUserSpan.textContent = user.email || user.uid; // Display email if available, else UID
-        loginButton.style.display = 'none';
-        registerButton.style.display = 'none';
-        logoutButton.style.display = 'inline-block';
         console.log("Firebase authenticated with UID:", currentUserId);
         console.log("Auth State: User is logged in. UID:", currentUserId);
-        
-        // Enable restricted content
-        restrictedContent.forEach(el => el.style.display = '');
-
-        // Re-initialize tracking with new UID
-        if (firebaseAuthReady) { // Prevent double init on first load
-            initMapAndLocationTracking();
-        }
-
       } else {
         currentUserId = 'anonymous';
-        currentAuthUserSpan.textContent = 'Chưa đăng nhập';
-        loginButton.style.display = 'inline-block';
-        registerButton.style.display = 'inline-block';
-        logoutButton.style.display = 'none';
         console.log("Firebase user logged out or not authenticated. Attempting anonymous sign-in...");
-        
-        // Disable restricted content
-        restrictedContent.forEach(el => el.style.display = 'none');
-        
-        // Clear map markers and stop location watching if logged out
-        if (locationWatchId !== null) {
-            navigator.geolocation.clearWatch(locationWatchId);
-            locationWatchId = null;
-            console.log("Location tracking stopped due to logout.");
-        }
-        // Clear all map objects
-        map.eachLayer(function(layer) {
-            if (layer instanceof L.Marker || layer instanceof L.Polyline || layer instanceof L.TileLayer) {
-                 if (layer !== L.tileLayer) { // Don't remove the base tile layer
-                    map.removeLayer(layer);
-                 }
-            }
-        });
-        currentDeviceMarker = null;
-        currentDevicePolyline = null;
-        currentDevicePoints = [];
-        activeTrackedDevices.forEach(device => {
-            if (device.marker) map.removeLayer(device.marker);
-            if (device.polyline) map.removeLayer(device.polyline);
-        });
-        activeTrackedDevices.clear();
-        activeDevicesUl.innerHTML = '<li>Đăng nhập để xem các thiết bị hoạt động.</li>';
-        
       }
       firebaseAuthReady = true;
+      initMapAndLocationTracking(); // Initialize map and tracking after Firebase is ready
     });
 
-    // Initial anonymous sign-in attempt
     if (initialAuthToken) {
       signInWithCustomToken(auth, initialAuthToken).catch((error) => {
         console.error("Error signing in with custom token:", error);
@@ -574,46 +440,9 @@
     } else {
       signInAnonymously(auth).catch((error) => {
         console.error("Error signing in anonymously:", error);
-        // Show modal if anonymous sign-in fails
-        // showModal(`Lỗi xác thực Firebase: ${error.message}. Vui lòng kiểm tra lại cấu hình Firebase và đảm bảo phương thức đăng nhập ẩn danh đã được bật trong Firebase Console.`);
+        showModal(`Lỗi xác thực Firebase: ${error.message}. Vui lòng kiểm tra lại cấu hình Firebase và đảm bảo phương thức đăng nhập ẩn danh đã được bật trong Firebase Console.`);
       });
     }
-
-    // --- Authentication Event Listeners ---
-    registerButton.addEventListener('click', async () => {
-        const email = authEmailInput.value;
-        const password = authPasswordInput.value;
-        try {
-            await createUserWithEmailAndPassword(auth, email, password);
-            showModal("Đăng ký thành công! Bạn đã tự động đăng nhập.");
-        } catch (error) {
-            console.error("Lỗi khi đăng ký:", error);
-            showModal(`Lỗi đăng ký: ${error.message}.`);
-        }
-    });
-
-    loginButton.addEventListener('click', async () => {
-        const email = authEmailInput.value;
-        const password = authPasswordInput.value;
-        try {
-            await signInWithEmailAndPassword(auth, email, password);
-            showModal("Đăng nhập thành công!");
-        } catch (error) {
-            console.error("Lỗi khi đăng nhập:", error);
-            showModal(`Lỗi đăng nhập: ${error.message}.`);
-        }
-    });
-
-    logoutButton.addEventListener('click', async () => {
-        try {
-            await signOut(auth);
-            showModal("Bạn đã đăng xuất.");
-        } catch (error) {
-            console.error("Lỗi khi đăng xuất:", error);
-            showModal(`Lỗi đăng xuất: ${error.message}.`);
-        }
-    });
-
 
     // --- Leaflet map initialization ---
     const map = L.map('map').setView([10.779, 106.699], 13);
@@ -657,45 +486,27 @@
     const activeDevicesUl = document.getElementById('active-devices-ul');
     const firebaseReceivingAppIdSpan = document.getElementById('firebase-receiving-app-id');
 
-    // Define Firestore collection paths
-    // Path for user-owned devices: users/{userId}/devices/{deviceId}
-    const USER_DEVICES_COLLECTION_PATH_PREFIX = (uid) => `users/${uid}/devices`;
-    // Path for all live public locations: live_locations/{deviceId}
-    const LIVE_LOCATIONS_COLLECTION_PATH = 'live_locations';
-
+    // Define the base Firestore collection path for devices
+    const BASE_FIRESTORE_COLLECTION_PATH_PREFIX = `artifacts/${appId}/devices`;
 
     // --- Function to send location data to Firestore ---
     async function sendToFirestore(lat, lng, speed) {
-      // Only send if logged in (not anonymous)
       if (!firebaseAuthReady || !currentUserId || currentUserId === 'anonymous') {
-        console.warn("Firebase authentication not ready or not logged in. Skipping data send.");
+        console.warn("Firebase authentication not ready or no userId. Skipping data send.");
         return;
       }
       try {
-        // 1. Update user-owned device location (users/{userId}/devices/{myDeviceId})
-        const userDeviceDocRef = doc(db, USER_DEVICES_COLLECTION_PATH_PREFIX(currentUserId), myDeviceId);
-        await setDoc(userDeviceDocRef, {
+        const deviceDocRef = doc(db, BASE_FIRESTORE_COLLECTION_PATH_PREFIX, myDeviceId);
+
+        await setDoc(deviceDocRef, {
           latitude: lat,
           longitude: lng,
           speed: speed,
           timestamp: Date.now(),
-          ownerUid: currentUserId, // Store owner's UID
+          senderUid: currentUserId,
           deviceName: myDeviceName // Include the device name
         });
-        console.log(`Data for ${myDeviceId} (${myDeviceName}) sent to user's Firestore successfully.`);
-
-        // 2. Update public live location (live_locations/{myDeviceId})
-        const liveLocationDocRef = doc(db, LIVE_LOCATIONS_COLLECTION_PATH, myDeviceId);
-        await setDoc(liveLocationDocRef, {
-          latitude: lat,
-          longitude: lng,
-          speed: speed,
-          timestamp: Date.now(),
-          ownerUid: currentUserId, // Store owner's UID
-          deviceName: myDeviceName
-        });
-        console.log(`Data for ${myDeviceId} (${myDeviceName}) sent to live_locations successfully.`);
-
+        console.log(`Data for ${myDeviceId} (${myDeviceName}) sent to Firestore successfully.`, { lat, lng, speed, senderUid: currentUserId, deviceName: myDeviceName });
       } catch (error) {
         console.error("Error sending data to Firestore:", error);
         showModal(`Lỗi khi gửi dữ liệu lên Firestore: ${error.message}. Vui lòng kiểm tra kết nối mạng và quy tắc bảo mật Firestore.`);
@@ -703,29 +514,16 @@
     }
 
     // --- Function to delete a device's data from Firestore ---
-    async function deleteDeviceFromFirestore(deviceIdToDelete, ownerUidOfDevice) {
+    async function deleteDeviceFromFirestore(deviceIdToDelete) {
         if (!firebaseAuthReady || !currentUserId || currentUserId === 'anonymous') {
             showModal("Bạn cần đăng nhập để thực hiện thao tác này.");
             return;
         }
-        // Only allow deleting if current user is the owner
-        if (currentUserId !== ownerUidOfDevice) {
-            showModal("Bạn không có quyền xóa thiết bị này. Chỉ chủ sở hữu mới có thể xóa.");
-            return;
-        }
-
-        if (confirm(`Bạn có chắc muốn xóa dữ liệu của thiết bị ID: ${deviceIdToDelete} (${activeTrackedDevices.get(deviceIdToDelete)?.marker?.getPopup().getContent().split('<br>')[0]}) không? Hành động này không thể hoàn tác.`)) {
+        if (confirm(`Bạn có chắc muốn xóa dữ liệu của thiết bị ID: ${deviceIdToDelete} không? Hành động này không thể hoàn tác.`)) {
             try {
-                // Delete from user-owned path
-                const userDeviceDocRef = doc(db, USER_DEVICES_COLLECTION_PATH_PREFIX(currentUserId), deviceIdToDelete);
-                await deleteDoc(userDeviceDocRef);
-                console.log(`Successfully deleted device data for ID: ${deviceIdToDelete} from user's collection.`);
-
-                // Delete from public live_locations path
-                const liveLocationDocRef = doc(db, LIVE_LOCATIONS_COLLECTION_PATH, deviceIdToDelete);
-                await deleteDoc(liveLocationDocRef);
-                console.log(`Successfully deleted device data for ID: ${deviceIdToDelete} from live_locations.`);
-
+                const deviceDocRef = doc(db, BASE_FIRESTORE_COLLECTION_PATH_PREFIX, deviceIdToDelete);
+                await deleteDoc(deviceDocRef);
+                console.log(`Successfully deleted device data for ID: ${deviceIdToDelete}`);
                 showModal(`Đã xóa dữ liệu của thiết bị ID: ${deviceIdToDelete}`);
             } catch (error) {
                 console.error("Error deleting device data from Firestore:", error);
@@ -751,10 +549,10 @@
       activeTrackedDevices.clear();
       activeDevicesUl.innerHTML = '<li>Đang tải danh sách thiết bị...</li>'; // Clear list UI
 
-      console.log(`Starting to track all devices in collection: ${LIVE_LOCATIONS_COLLECTION_PATH}`);
-      firebaseReceivingAppIdSpan.textContent = appId; // This is now more about the app, not a specific ID to track
+      console.log(`Starting to track all devices in collection: ${BASE_FIRESTORE_COLLECTION_PATH_PREFIX}`);
+      firebaseReceivingAppIdSpan.textContent = appId;
 
-      const devicesCollectionRef = collection(db, LIVE_LOCATIONS_COLLECTION_PATH); // Listen to live_locations collection
+      const devicesCollectionRef = collection(db, BASE_FIRESTORE_COLLECTION_PATH_PREFIX);
 
       firebaseCollectionUnsubscribe = onSnapshot(devicesCollectionRef, (querySnapshot) => {
         activeDevicesUl.innerHTML = ''; // Clear list for fresh update
@@ -762,7 +560,8 @@
         if (querySnapshot.empty) {
           activeDevicesUl.innerHTML = '<li>Chưa có thiết bị nào hoạt động.</li>';
           console.log("No active devices found in Firestore.");
-          activeTrackedDevices.forEach(device => { // Ensure map is clear
+          // Also clear any remaining markers/polylines if the collection becomes empty
+          activeTrackedDevices.forEach(device => {
             if (device.marker) map.removeLayer(device.marker);
             if (device.polyline) map.removeLayer(device.polyline);
           });
@@ -775,7 +574,7 @@
         querySnapshot.forEach((docSnapshot) => {
           const deviceId = docSnapshot.id;
           const data = docSnapshot.data();
-          const { latitude, longitude, speed, deviceName, ownerUid } = data; // Get ownerUid
+          const { latitude, longitude, speed, deviceName } = data;
           const currentSpeed = (speed || 0).toFixed(2);
           const displayDeviceName = deviceName || deviceId; // Use name if available, else ID
 
@@ -784,10 +583,8 @@
           let device = activeTrackedDevices.get(deviceId);
           if (!device) {
             // New device found
-            device = { marker: null, polyline: null, points: [], ownerUid: ownerUid }; // Store ownerUid
+            device = { marker: null, polyline: null, points: [] };
             activeTrackedDevices.set(deviceId, device);
-          } else {
-              device.ownerUid = ownerUid; // Update ownerUid in case it changed (unlikely for device, but good practice)
           }
 
           // Update points and create/update polyline
@@ -829,17 +626,14 @@
           deviceInfoDiv.innerHTML = `<span class="device-name">${displayDeviceName}</span><br><span class="device-id">${deviceId}</span>`;
           listItem.appendChild(deviceInfoDiv);
 
-          // Only show delete button if current user is the owner of this device
-          if (currentUserId === ownerUid) {
-            const deleteButton = document.createElement('button');
-            deleteButton.classList.add('delete-button');
-            deleteButton.textContent = 'Xóa';
-            deleteButton.onclick = (e) => {
-                e.stopPropagation(); // Prevent listItem click when button is clicked
-                deleteDeviceFromFirestore(deviceId, ownerUid);
-            };
-            listItem.appendChild(deleteButton);
-          }
+          const deleteButton = document.createElement('button');
+          deleteButton.classList.add('delete-button');
+          deleteButton.textContent = 'Xóa';
+          deleteButton.onclick = (e) => {
+              e.stopPropagation(); // Prevent listItem click when button is clicked
+              deleteDeviceFromFirestore(deviceId);
+          };
+          listItem.appendChild(deleteButton);
 
           listItem.onclick = () => {
               if (device.marker) {
@@ -865,7 +659,7 @@
         console.log(`Tracking ${activeTrackedDevices.size} active devices.`);
       }, (error) => {
         console.error("Error fetching data from Firestore collection:", error);
-        showModal(`Lỗi khi theo dõi các thiết bị: ${error.message}. Vui lòng kiểm tra quyền Firestore cho bộ sưu tập 'live_locations'.`);
+        showModal(`Lỗi khi theo dõi các thiết bị: ${error.message}. Vui lòng kiểm tra quy tắc bảo mật Firestore.`);
       });
     }
 
@@ -967,108 +761,105 @@
       myDeviceCurrentNameSpan.textContent = myDeviceName;
       firebaseReceivingAppIdSpan.textContent = appId; // Display the app ID being tracked
 
-      // Only start location watching if not already watching AND user is logged in
-      if (locationWatchId === null && currentUserId !== 'anonymous') {
-          if (!navigator.geolocation) {
-            document.querySelector('.info-box p strong').textContent = "Lỗi: Trình duyệt của bạn không hỗ trợ Geolocation.";
-            showModal("Trình duyệt của bạn không hỗ trợ Geolocation.");
-            return;
-          }
-
-          document.querySelector('.info-box p strong').textContent = "Đang lấy vị trí...";
-
-          // Start tracking current device's position
-          locationWatchId = navigator.geolocation.watchPosition((position) => {
-            document.getElementById('errorModal').style.display = 'none';
-
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
-            const speed = (position.coords.speed || 0) * 3.6; // m/s to km/h
-
-            document.getElementById('current-lat').textContent = lat.toFixed(5);
-            document.getElementById('current-lng').textContent = lng.toFixed(5);
-            document.getElementById('current-speed').textContent = speed.toFixed(2);
-            document.querySelector('.info-box p strong').textContent = "Đang theo dõi vị trí của bạn...";
-
-            // Update current device marker and polyline
-            currentDevicePoints.push([lat, lng]);
-            if (currentDeviceMarker) {
-              currentDeviceMarker.setLatLng([lat, lng]);
-            } else {
-              currentDeviceMarker = L.marker([lat, lng], {
-                icon: L.divIcon({
-                  className: 'custom-div-icon-current',
-                  html: '<div style="background-color:#4CAF50; width:20px; height:20px; border-radius:50%; border:3px solid white; box-shadow:0 0 8px rgba(0,0,0,0.4);"></div>',
-                  iconSize: [26, 26],
-                  iconAnchor: [13, 13]
-                })
-              }).addTo(map);
-              currentDeviceMarker.bindPopup(`Vị trí của bạn<br>Tên: ${myDeviceName}<br>ID: ${myDeviceId}`).openPopup();
-            }
-            currentDeviceMarker.setPopupContent(`Vị trí của bạn<br>Tên: ${myDeviceName}<br>ID: ${myDeviceId}<br>Tốc độ: ${speed.toFixed(2)} km/h`);
-
-            if (currentDevicePolyline) {
-              currentDevicePolyline.setLatLngs(currentDevicePoints);
-            } else {
-              currentDevicePolyline = L.polyline(currentDevicePoints, {
-                color: '#4CAF50',
-                weight: 5,
-                opacity: 0.8
-              }).addTo(map);
-            }
-
-            // Send data to Firestore (now includes deviceName)
-            sendToFirestore(lat, lng, speed);
-
-            // --- Record trip data if recording is active ---
-            if (isRecordingTrip) {
-              recordedTripPoints.push({ lat, lng, speed, timestamp: Date.now() });
-
-              // Update polyline for the recorded trip (using orange color)
-              const tripLatLngs = recordedTripPoints.map(p => [p.lat, p.lng]);
-              if (recordedTripPolyline) {
-                recordedTripPolyline.setLatLngs(tripLatLngs);
-              } else {
-                recordedTripPolyline = L.polyline(tripLatLngs, {
-                  color: '#FF7F00',
-                  weight: 6,
-                  opacity: 0.9,
-                  lineCap: 'round'
-                }).addTo(map);
-              }
-            }
-
-          }, (error) => {
-            console.error("Error getting location:", error);
-            console.error("Đối tượng lỗi định vị:", error);
-            let errorMessage = "Không thể lấy vị trí.";
-            switch(error.code) {
-              case error.PERMISSION_DENIED:
-                errorMessage = "Bạn đã từ chối quyền truy cập vị trí.";
-                break;
-              case error.POSITION_UNAVAILABLE:
-                errorMessage = "Thông tin vị trí không khả dụng.";
-                break;
-              case error.TIMEOUT:
-                errorMessage = "Yêu cầu lấy vị trí đã hết thời gian.";
-                break;
-              case error.UNKNOWN_ERROR:
-                errorMessage = "Đã xảy ra lỗi không xác định.";
-                break;
-            }
-            document.querySelector('.info-box p strong').textContent = `Lỗi: ${errorMessage}`;
-            document.getElementById('current-lat').textContent = 'Error';
-            document.getElementById('current-lng').textContent = 'Error';
-            document.getElementById('current-speed').textContent = 'Error';
-            showModal(errorMessage);
-          }, {
-            enableHighAccuracy: true,
-            maximumAge: 0,
-            timeout: 10000
-          });
+      if (!navigator.geolocation) {
+        document.querySelector('.info-box p strong').textContent = "Lỗi: Trình duyệt của bạn không hỗ trợ Geolocation.";
+        showModal("Trình duyệt của bạn không hỗ trợ Geolocation.");
+        return;
       }
-      
-      // Always start tracking all devices when auth state changes
+
+      document.querySelector('.info-box p strong').textContent = "Đang lấy vị trí...";
+
+      // Start tracking current device's position
+      navigator.geolocation.watchPosition((position) => {
+        document.getElementById('errorModal').style.display = 'none';
+
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        const speed = (position.coords.speed || 0) * 3.6; // m/s to km/h
+
+        document.getElementById('current-lat').textContent = lat.toFixed(5);
+        document.getElementById('current-lng').textContent = lng.toFixed(5);
+        document.getElementById('current-speed').textContent = speed.toFixed(2);
+        document.querySelector('.info-box p strong').textContent = "Đang theo dõi vị trí của bạn...";
+
+        // Update current device marker and polyline
+        currentDevicePoints.push([lat, lng]);
+        if (currentDeviceMarker) {
+          currentDeviceMarker.setLatLng([lat, lng]);
+        } else {
+          currentDeviceMarker = L.marker([lat, lng], {
+            icon: L.divIcon({
+              className: 'custom-div-icon-current',
+              html: '<div style="background-color:#4CAF50; width:20px; height:20px; border-radius:50%; border:3px solid white; box-shadow:0 0 8px rgba(0,0,0,0.4);"></div>',
+              iconSize: [26, 26],
+              iconAnchor: [13, 13]
+            })
+          }).addTo(map);
+          currentDeviceMarker.bindPopup(`Vị trí của bạn<br>Tên: ${myDeviceName}<br>ID: ${myDeviceId}`).openPopup();
+        }
+        currentDeviceMarker.setPopupContent(`Vị trí của bạn<br>Tên: ${myDeviceName}<br>ID: ${myDeviceId}<br>Tốc độ: ${speed.toFixed(2)} km/h`);
+
+        if (currentDevicePolyline) {
+          currentDevicePolyline.setLatLngs(currentDevicePoints);
+        } else {
+          currentDevicePolyline = L.polyline(currentDevicePoints, {
+            color: '#4CAF50',
+            weight: 5,
+            opacity: 0.8
+          }).addTo(map);
+        }
+
+        // Send data to Firestore (now includes deviceName)
+        sendToFirestore(lat, lng, speed);
+
+        // --- Record trip data if recording is active ---
+        if (isRecordingTrip) {
+          recordedTripPoints.push({ lat, lng, speed, timestamp: Date.now() });
+
+          // Update polyline for the recorded trip (using orange color)
+          const tripLatLngs = recordedTripPoints.map(p => [p.lat, p.lng]);
+          if (recordedTripPolyline) {
+            recordedTripPolyline.setLatLngs(tripLatLngs);
+          } else {
+            recordedTripPolyline = L.polyline(tripLatLngs, {
+              color: '#FF7F00',
+              weight: 6,
+              opacity: 0.9,
+              lineCap: 'round'
+            }).addTo(map);
+          }
+        }
+
+      }, (error) => {
+        console.error("Error getting location:", error);
+        console.error("Đối tượng lỗi định vị:", error);
+        let errorMessage = "Không thể lấy vị trí.";
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = "Bạn đã từ chối quyền truy cập vị trí.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Thông tin vị trí không khả dụng.";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "Yêu cầu lấy vị trí đã hết thời gian.";
+            break;
+          case error.UNKNOWN_ERROR:
+            errorMessage = "Đã xảy ra lỗi không xác định.";
+            break;
+        }
+        document.querySelector('.info-box p strong').textContent = `Lỗi: ${errorMessage}`;
+        document.getElementById('current-lat').textContent = 'Error';
+        document.getElementById('current-lng').textContent = 'Error';
+        document.getElementById('current-speed').textContent = 'Error';
+        showModal(errorMessage);
+      }, {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 10000
+      });
+
+      // Automatically start tracking all devices when the app initializes
       startTrackingAllDevices();
     }
   </script>
