@@ -73,6 +73,7 @@
       justify-content: center;
       gap: 15px; /* Khoảng cách giữa các nút */
       margin-bottom: 15px;
+      flex-wrap: wrap; /* Cho phép xuống dòng trên màn hình nhỏ */
     }
 
     .control-group button {
@@ -116,12 +117,18 @@
       flex-direction: column;
       align-items: center;
       gap: 10px;
+      width: 100%;
+      max-width: 400px; /* Giới hạn chiều rộng group */
+      margin-left: auto;
+      margin-right: auto;
     }
 
     .input-group label {
       font-weight: 600;
       color: #2c3e50;
       margin-bottom: 5px;
+      text-align: left;
+      width: 100%;
     }
 
     .input-group input[type="text"] {
@@ -129,8 +136,7 @@
       border: 1px solid #ccc;
       border-radius: 8px;
       width: 100%;
-      max-width: 300px;
-      box-sizing: border-box;
+      box-sizing: border-box; /* Bao gồm padding và border vào width */
       font-size: 1em;
     }
 
@@ -144,12 +150,62 @@
       font-size: 1em;
       transition: background-color 0.3s ease, transform 0.2s ease;
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      width: auto; /* Điều chỉnh lại width cho button */
     }
 
     .input-group button:hover {
       background-color: #0056b3;
       transform: translateY(-2px);
     }
+
+    /* List of tracked devices */
+    #tracked-devices-list {
+      margin-top: 20px;
+      text-align: left;
+      width: 95%;
+      max-width: 800px;
+      background-color: #f8f8f8;
+      border-radius: 8px;
+      padding: 15px;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.06);
+    }
+
+    #tracked-devices-list h3 {
+      color: #2c3e50;
+      margin-bottom: 10px;
+    }
+
+    #tracked-devices-list ul {
+      list-style: none;
+      padding: 0;
+      max-height: 200px; /* Giới hạn chiều cao và cho phép cuộn */
+      overflow-y: auto;
+      border-top: 1px solid #eee;
+      padding-top: 10px;
+    }
+
+    #tracked-devices-list li {
+      padding: 8px 0;
+      border-bottom: 1px dashed #e0e0e0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #tracked-devices-list li:last-child {
+      border-bottom: none;
+    }
+
+    #tracked-devices-list li .device-name {
+      font-weight: 700;
+      color: #007BFF;
+      font-size: 1.05em;
+    }
+    #tracked-devices-list li .device-id {
+      font-size: 0.85em;
+      color: #777;
+      word-break: break-all;
+    }
+
 
     /* Modal cho thông báo lỗi */
     .modal {
@@ -208,6 +264,9 @@
       .modal-content {
         width: 90%;
       }
+      .control-group button {
+        width: 100%; /* Đảm bảo nút chiếm toàn bộ chiều rộng trên mobile */
+      }
     }
   </style>
 </head>
@@ -224,7 +283,13 @@
     <p>Vĩ độ: <span id="current-lat">N/A</span>, Kinh độ: <span id="current-lng">N/A</span></p>
     <p>Tốc độ: <span id="current-speed">N/A</span> km/h</p>
 
-    <p>ID Thiết bị của bạn (Gửi dữ liệu): <span id="my-device-id">Đang tạo...</span></p>
+    <!-- Phần đặt tên cho thiết bị của bạn -->
+    <div class="input-group">
+      <label for="my-device-name-input">Tên thiết bị của bạn (để dễ quản lý):</label>
+      <input type="text" id="my-device-name-input" placeholder="Ví dụ: Xe của tôi, Điện thoại của An">
+      <button id="set-device-name-button">Lưu Tên Thiết Bị</button>
+      <p>ID Thiết bị của bạn: <span id="my-device-id">Đang tạo...</span> (Tên: <span id="my-device-current-name">Chưa đặt</span>)</p>
+    </div>
 
     <div class="control-group">
       <button id="start-record-button">Bắt đầu Ghi Chuyến Đi</button>
@@ -240,12 +305,15 @@
       <p>Tốc độ thấp nhất: <span id="min-speed">0.00</span> km/h</p>
     </div>
 
-    <div class="input-group">
-      <label for="track-device-id-input">Nhập ID thiết bị cần theo dõi:</label>
-      <input type="text" id="track-device-id-input" placeholder="Ví dụ: abc-123-xyz">
-      <button id="start-tracking-button">Bắt Đầu Theo Dõi</button>
+    <!-- Phần hiển thị danh sách các thiết bị đang được theo dõi -->
+    <div id="tracked-devices-list">
+        <h3>Các Thiết Bị Đang Hoạt Động</h3>
+        <ul id="active-devices-ul">
+            <!-- Danh sách thiết bị sẽ được JavaScript thêm vào đây -->
+            <li>Chưa có thiết bị nào hoạt động...</li>
+        </ul>
+        <p>Đang theo dõi tất cả thiết bị trên ID ứng dụng: <span id="firebase-receiving-app-id"></span></p>
     </div>
-    <p>ID thiết bị đang được theo dõi: <span id="firebase-receiving-id">Chưa chọn</span></p>
   </div>
 
   <!-- Modal cho thông báo lỗi (thay thế alert) -->
@@ -259,7 +327,6 @@
         <li>Đảm bảo bạn đã cấp quyền truy cập vị trí cho trình duyệt/ứng dụng này.</li>
         <li>Bật GPS (dịch vụ vị trí) trên thiết bị của bạn.</li>
         <li>Thử di chuyển ra ngoài trời hoặc đến nơi có tín hiệu GPS tốt hơn.</li>
-        <li>Kiểm tra xem ID thiết bị có đúng không.</li>
         <li>Kiểm tra <a href="https://console.firebase.google.com/project/ailearn-a396f/firestore/rules" target="_blank" style="color: #007BFF; text-decoration: underline;">quy tắc bảo mật Firestore Database</a>.</li>
         <li>Tải lại trang.</li>
       </ul>
@@ -273,8 +340,8 @@
   <script type="module">
     // --- Import the functions you need from the SDKs you need ---
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
-    // Firestore imports
-    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    // Firestore imports (collection and query added)
+    import { getFirestore, doc, setDoc, onSnapshot, collection, query } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
     // Auth imports
     import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
 
@@ -325,10 +392,10 @@
       if (user) {
         currentUserId = user.uid;
         console.log("Firebase authenticated with UID:", currentUserId);
-        console.log("Auth State: User is logged in. UID:", currentUserId); // Debug log
+        console.log("Auth State: User is logged in. UID:", currentUserId);
       } else {
-        currentUserId = 'anonymous'; // Ensure it's reset if logged out
-        console.log("Firebase user logged out or not authenticated. Attempting anonymous sign-in..."); // Debug log
+        currentUserId = 'anonymous';
+        console.log("Firebase user logged out or not authenticated. Attempting anonymous sign-in...");
       }
       firebaseAuthReady = true;
       initMapAndLocationTracking(); // Initialize map and tracking after Firebase is ready
@@ -337,7 +404,7 @@
     if (initialAuthToken) {
       signInWithCustomToken(auth, initialAuthToken).catch((error) => {
         console.error("Error signing in with custom token:", error);
-        console.log("Fallback: Attempting anonymous sign-in due to custom token error."); // Debug log
+        console.log("Fallback: Attempting anonymous sign-in due to custom token error.");
         signInAnonymously(auth);
       });
     } else {
@@ -358,14 +425,13 @@
     let currentDevicePolyline = null;
     let currentDevicePoints = [];
     let myDeviceId = localStorage.getItem('myDeviceId') || crypto.randomUUID();
+    let myDeviceName = localStorage.getItem('myDeviceName') || 'Thiết bị của tôi';
     localStorage.setItem('myDeviceId', myDeviceId);
+    localStorage.setItem('myDeviceName', myDeviceName);
 
-    // --- Variables for tracked device marker and polyline ---
-    let trackedDeviceMarker = null;
-    let trackedDevicePolyline = null;
-    let trackedDevicePoints = [];
-    let currentTrackedDeviceId = null;
-    let firebaseUnsubscribe = null; // Changed from firebaseListenerRef for Firestore unsubscribe
+    // --- Map to store Leaflet markers and polylines for ALL tracked devices ---
+    const activeTrackedDevices = new Map(); // Key: deviceId, Value: { marker: L.Marker, polyline: L.Polyline, points: LatLng[] }
+    let firebaseCollectionUnsubscribe = null; // Unsubscribe for the collection listener
 
     // --- Variables for trip recording feature ---
     let isRecordingTrip = false;
@@ -380,97 +446,104 @@
     const maxSpeedSpan = document.getElementById('max-speed');
     const minSpeedSpan = document.getElementById('min-speed');
 
+    // UI elements for device naming
+    const myDeviceNameInput = document.getElementById('my-device-name-input');
+    const setDeviceNameButton = document.getElementById('set-device-name-button');
+    const myDeviceIdSpan = document.getElementById('my-device-id');
+    const myDeviceCurrentNameSpan = document.getElementById('my-device-current-name');
+
+    // UI element for active devices list
+    const activeDevicesUl = document.getElementById('active-devices-ul');
+    const firebaseReceivingAppIdSpan = document.getElementById('firebase-receiving-app-id');
+
     // Define the base Firestore collection path for devices
-    // CORRECTED PATH STRUCTURE: /artifacts/{appId}/devices/{deviceId}
-    // This forms a collection 'artifacts', a document '{appId}', and a subcollection 'devices'
-    // where '{deviceId}' is the document for a specific device.
     const BASE_FIRESTORE_COLLECTION_PATH_PREFIX = `artifacts/${appId}/devices`;
 
     // --- Function to send location data to Firestore ---
     async function sendToFirestore(lat, lng, speed) {
-      console.log("Attempting to send to Firestore:"); // Debug log
-      console.log("  firebaseAuthReady:", firebaseAuthReady); // Debug log
-      console.log("  currentUserId:", currentUserId); // Debug log
-      console.log("  myDeviceId:", myDeviceId); // Debug log
-
       if (!firebaseAuthReady || !currentUserId || currentUserId === 'anonymous') {
         console.warn("Firebase authentication not ready or no userId. Skipping data send.");
         return;
       }
       try {
-        // Corrected document reference path
-        // The path will be: artifacts/{appId}/devices/{myDeviceId}
         const deviceDocRef = doc(db, BASE_FIRESTORE_COLLECTION_PATH_PREFIX, myDeviceId);
 
-        // Set the document data. setDoc creates or overwrites a document.
         await setDoc(deviceDocRef, {
           latitude: lat,
           longitude: lng,
           speed: speed,
           timestamp: Date.now(),
-          senderUid: currentUserId
+          senderUid: currentUserId,
+          deviceName: myDeviceName // Include the device name
         });
-        console.log(`Data for ${myDeviceId} sent to Firestore successfully.`, { lat, lng, speed, senderUid: currentUserId }); // Debug log
+        console.log(`Data for ${myDeviceId} (${myDeviceName}) sent to Firestore successfully.`, { lat, lng, speed, senderUid: currentUserId, deviceName: myDeviceName });
       } catch (error) {
         console.error("Error sending data to Firestore:", error);
         showModal(`Lỗi khi gửi dữ liệu lên Firestore: ${error.message}. Vui lòng kiểm tra kết nối mạng và quy tắc bảo mật Firestore.`);
       }
     }
 
-    // --- Function to start listening for another device's location from Firestore ---
-    function startTrackingOtherDevice(deviceIdToTrack) {
+    // --- Function to start listening for all active devices from Firestore ---
+    function startTrackingAllDevices() {
       // Unsubscribe from previous listener if active
-      if (firebaseUnsubscribe) {
-        firebaseUnsubscribe(); // Call the unsubscribe function
-        firebaseUnsubscribe = null;
-        console.log(`Unsubscribed from tracking device ID: ${currentTrackedDeviceId}`);
+      if (firebaseCollectionUnsubscribe) {
+        firebaseCollectionUnsubscribe(); // Call the unsubscribe function
+        firebaseCollectionUnsubscribe = null;
+        console.log("Unsubscribed from tracking all devices.");
       }
 
-      // Clear old tracked device marker and polyline
-      if (trackedDeviceMarker) {
-        map.removeLayer(trackedDeviceMarker);
-        trackedDeviceMarker = null;
-      }
-      if (trackedDevicePolyline) {
-        map.removeLayer(trackedDevicePolyline);
-        trackedDevicePolyline = null;
-      }
-      trackedDevicePoints = []; // Reset points array
+      // Clear all existing markers and polylines for tracked devices
+      activeTrackedDevices.forEach(device => {
+        if (device.marker) map.removeLayer(device.marker);
+        if (device.polyline) map.removeLayer(device.polyline);
+      });
+      activeTrackedDevices.clear();
+      activeDevicesUl.innerHTML = '<li>Đang tải danh sách thiết bị...</li>'; // Clear list UI
 
-      currentTrackedDeviceId = deviceIdToTrack;
-      document.getElementById('firebase-receiving-id').textContent = currentTrackedDeviceId;
+      console.log(`Starting to track all devices in collection: ${BASE_FIRESTORE_COLLECTION_PATH_PREFIX}`);
+      firebaseReceivingAppIdSpan.textContent = appId;
 
-      // Corrected document reference path for tracking
-      const trackedDeviceDocRef = doc(db, BASE_FIRESTORE_COLLECTION_PATH_PREFIX, currentTrackedDeviceId);
+      const devicesCollectionRef = collection(db, BASE_FIRESTORE_COLLECTION_PATH_PREFIX);
 
-      // Listen for real-time changes to the document
-      firebaseUnsubscribe = onSnapshot(trackedDeviceDocRef, (docSnapshot) => {
-        if (docSnapshot.exists()) {
+      firebaseCollectionUnsubscribe = onSnapshot(devicesCollectionRef, (querySnapshot) => {
+        activeDevicesUl.innerHTML = ''; // Clear list for fresh update
+
+        if (querySnapshot.empty) {
+          activeDevicesUl.innerHTML = '<li>Chưa có thiết bị nào hoạt động.</li>';
+          console.log("No active devices found in Firestore.");
+          // Also clear any remaining markers/polylines if the collection becomes empty
+          activeTrackedDevices.forEach(device => {
+            if (device.marker) map.removeLayer(device.marker);
+            if (device.polyline) map.removeLayer(device.polyline);
+          });
+          activeTrackedDevices.clear();
+          return;
+        }
+
+        const currentActiveDeviceIds = new Set(); // Keep track of device IDs in the current snapshot
+
+        querySnapshot.forEach((docSnapshot) => {
+          const deviceId = docSnapshot.id;
           const data = docSnapshot.data();
-          const { latitude, longitude, speed } = data;
+          const { latitude, longitude, speed, deviceName } = data;
           const currentSpeed = (speed || 0).toFixed(2);
+          const displayDeviceName = deviceName || deviceId; // Use name if available, else ID
 
-          trackedDevicePoints.push([latitude, longitude]);
+          currentActiveDeviceIds.add(deviceId); // Add to set of active IDs
 
-          if (trackedDeviceMarker) {
-            trackedDeviceMarker.setLatLng([latitude, longitude]);
-            trackedDeviceMarker.setPopupContent(`ID ${currentTrackedDeviceId}<br>Tốc độ: ${currentSpeed} km/h`);
-          } else {
-            trackedDeviceMarker = L.marker([latitude, longitude], {
-              icon: L.divIcon({
-                className: 'custom-div-icon-tracked',
-                html: '<div style="background-color:#007BFF; width:20px; height:20px; border-radius:50%; border:3px solid white; box-shadow:0 0 8px rgba(0,0,0,0.4);"></div>',
-                iconSize: [26, 26],
-                iconAnchor: [13, 13]
-              })
-            }).addTo(map);
-            trackedDeviceMarker.bindPopup(`ID ${currentTrackedDeviceId}<br>Tốc độ: ${currentSpeed} km/h`).openPopup();
+          let device = activeTrackedDevices.get(deviceId);
+          if (!device) {
+            // New device found
+            device = { marker: null, polyline: null, points: [] };
+            activeTrackedDevices.set(deviceId, device);
           }
 
-          if (trackedDevicePolyline) {
-            trackedDevicePolyline.setLatLngs(trackedDevicePoints);
+          // Update points and create/update polyline
+          device.points.push([latitude, longitude]);
+          if (device.polyline) {
+            device.polyline.setLatLngs(device.points);
           } else {
-            trackedDevicePolyline = L.polyline(trackedDevicePoints, {
+            device.polyline = L.polyline(device.points, {
               color: '#007BFF',
               weight: 3,
               opacity: 0.7,
@@ -478,25 +551,45 @@
             }).addTo(map);
           }
 
-          console.log(`Data received from Firestore for ID ${currentTrackedDeviceId}:`, data);
-          map.setView([latitude, longitude], 15); // Center map on the tracked device
-        } else {
-          console.log(`No data found for device ID ${currentTrackedDeviceId} at: ${BASE_FIRESTORE_COLLECTION_PATH_PREFIX}/${currentTrackedDeviceId}`);
-          showModal(`Không tìm thấy dữ liệu cho ID thiết bị: ${currentTrackedDeviceId}. Vui lòng kiểm tra lại ID.`);
-          // Remove marker/polyline if data disappears
-          if (trackedDeviceMarker) {
-            map.removeLayer(trackedDeviceMarker);
-            trackedDeviceMarker = null;
+          // Update or create marker
+          if (device.marker) {
+            device.marker.setLatLng([latitude, longitude]);
+            device.marker.setPopupContent(`Tên: ${displayDeviceName}<br>ID: ${deviceId}<br>Tốc độ: ${currentSpeed} km/h`);
+          } else {
+            device.marker = L.marker([latitude, longitude], {
+              icon: L.divIcon({
+                className: 'custom-div-icon-tracked',
+                html: '<div style="background-color:#007BFF; width:20px; height:20px; border-radius:50%; border:3px solid white; box-shadow:0 0 8px rgba(0,0,0,0.4);"></div>',
+                iconSize: [26, 26],
+                iconAnchor: [13, 13]
+              })
+            }).addTo(map);
+            device.marker.bindPopup(`Tên: ${displayDeviceName}<br>ID: ${deviceId}<br>Tốc độ: ${currentSpeed} km/h`).openPopup();
           }
-          if (trackedDevicePolyline) {
-            map.removeLayer(trackedDevicePolyline);
-            trackedDevicePolyline = null;
+
+          // Update list UI
+          const listItem = document.createElement('li');
+          listItem.innerHTML = `<span class="device-name">${displayDeviceName}</span><br><span class="device-id">${deviceId}</span>`;
+          activeDevicesUl.appendChild(listItem);
+
+          // Center map on the last updated tracked device (optional, can remove if you prefer fixed view)
+          map.setView([latitude, longitude], map.getZoom());
+        });
+
+        // Remove devices that are no longer in the snapshot (e.g., went offline or data deleted)
+        activeTrackedDevices.forEach((device, deviceId) => {
+          if (!currentActiveDeviceIds.has(deviceId)) {
+            if (device.marker) map.removeLayer(device.marker);
+            if (device.polyline) map.removeLayer(device.polyline);
+            activeTrackedDevices.delete(deviceId);
+            console.log(`Removed device ID ${deviceId} from map (no longer in snapshot).`);
           }
-          trackedDevicePoints = [];
-        }
+        });
+
+        console.log(`Tracking ${activeTrackedDevices.size} active devices.`);
       }, (error) => {
-        console.error("Error fetching data from Firestore:", error);
-        showModal(`Lỗi khi theo dõi ID ${currentTrackedDeviceId}: ${error.message}.`);
+        console.error("Error fetching data from Firestore collection:", error);
+        showModal(`Lỗi khi theo dõi các thiết bị: ${error.message}. Vui lòng kiểm tra quy tắc bảo mật Firestore.`);
       });
     }
 
@@ -538,6 +631,29 @@
       minSpeedSpan.textContent = (minSpeed === Infinity ? 0.00 : minSpeed).toFixed(2);
     }
 
+    // --- Event listener for 'Set Device Name' button ---
+    setDeviceNameButton.addEventListener('click', () => {
+        const newName = myDeviceNameInput.value.trim();
+        if (newName) {
+            myDeviceName = newName;
+            localStorage.setItem('myDeviceName', myDeviceName);
+            myDeviceCurrentNameSpan.textContent = myDeviceName;
+            showModal(`Tên thiết bị đã được lưu: "${myDeviceName}"`);
+            // Trigger a data send to update Firestore immediately with the new name
+            navigator.geolocation.getCurrentPosition((position) => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                const speed = (position.coords.speed || 0) * 3.6;
+                sendToFirestore(lat, lng, speed);
+            }, (error) => {
+                console.error("Error getting current position to update name:", error);
+                showModal(`Lỗi khi lấy vị trí để cập nhật tên: ${error.message}.`);
+            });
+        } else {
+            showModal("Vui lòng nhập tên thiết bị.");
+        }
+    });
+
     // --- Event listener for 'Start Record Trip' button ---
     startRecordButton.addEventListener('click', () => {
       isRecordingTrip = true;
@@ -570,7 +686,10 @@
 
     // --- Initialize location tracking and map logic ---
     function initMapAndLocationTracking() {
-      document.getElementById('my-device-id').textContent = myDeviceId;
+      myDeviceNameInput.value = myDeviceName; // Populate input with saved name
+      myDeviceIdSpan.textContent = myDeviceId;
+      myDeviceCurrentNameSpan.textContent = myDeviceName;
+      firebaseReceivingAppIdSpan.textContent = appId; // Display the app ID being tracked
 
       if (!navigator.geolocation) {
         document.querySelector('.info-box p strong').textContent = "Lỗi: Trình duyệt của bạn không hỗ trợ Geolocation.";
@@ -580,6 +699,7 @@
 
       document.querySelector('.info-box p strong').textContent = "Đang lấy vị trí...";
 
+      // Start tracking current device's position
       navigator.geolocation.watchPosition((position) => {
         document.getElementById('errorModal').style.display = 'none';
 
@@ -605,9 +725,9 @@
               iconAnchor: [13, 13]
             })
           }).addTo(map);
-          currentDeviceMarker.bindPopup('Vị trí của bạn').openPopup();
+          currentDeviceMarker.bindPopup(`Vị trí của bạn<br>Tên: ${myDeviceName}<br>ID: ${myDeviceId}`).openPopup();
         }
-        currentDeviceMarker.setPopupContent(`Vị trí của bạn<br>Tốc độ: ${speed.toFixed(2)} km/h`);
+        currentDeviceMarker.setPopupContent(`Vị trí của bạn<br>Tên: ${myDeviceName}<br>ID: ${myDeviceId}<br>Tốc độ: ${speed.toFixed(2)} km/h`);
 
         if (currentDevicePolyline) {
           currentDevicePolyline.setLatLngs(currentDevicePoints);
@@ -619,7 +739,7 @@
           }).addTo(map);
         }
 
-        // Send data to Firestore
+        // Send data to Firestore (now includes deviceName)
         sendToFirestore(lat, lng, speed);
 
         // --- Record trip data if recording is active ---
@@ -642,6 +762,7 @@
 
       }, (error) => {
         console.error("Error getting location:", error);
+        console.error("Đối tượng lỗi định vị:", error); // Added debug log for error object
         let errorMessage = "Không thể lấy vị trí.";
         switch(error.code) {
           case error.PERMISSION_DENIED:
@@ -667,17 +788,10 @@
         maximumAge: 0,
         timeout: 10000
       });
-    }
 
-    // --- Event listener for 'Start Tracking Other Device' button ---
-    document.getElementById('start-tracking-button').addEventListener('click', () => {
-      const deviceIdToTrack = document.getElementById('track-device-id-input').value.trim();
-      if (deviceIdToTrack) {
-        startTrackingOtherDevice(deviceIdToTrack);
-      } else {
-        showModal("Vui lòng nhập ID thiết bị cần theo dõi.");
-      }
-    });
+      // Automatically start tracking all devices when the app initializes
+      startTrackingAllDevices();
+    }
   </script>
 </body>
 </html>
