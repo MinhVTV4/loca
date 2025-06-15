@@ -279,7 +279,7 @@
     import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
 
     // --- Global variables provided by the Canvas environment (if available) ---
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; // Use default if not in Canvas env
     const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
       apiKey: "AIzaSyA-pE9TSiWYIiBinEqqugeJZvj-YO_5Ms4",
       authDomain: "ailearn-a396f.firebaseapp.com",
@@ -287,7 +287,6 @@
       storageBucket: "ailearn-a396f.firebasestorage.app",
       messagingSenderId: "496727313294",
       appId: "1:496727313294:web:dfbc4df6a38a662bd7f2df"
-      // databaseURL is for Realtime Database, not needed for Firestore
     };
     const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
@@ -338,11 +337,13 @@
     if (initialAuthToken) {
       signInWithCustomToken(auth, initialAuthToken).catch((error) => {
         console.error("Error signing in with custom token:", error);
+        console.log("Fallback: Attempting anonymous sign-in due to custom token error."); // Debug log
         signInAnonymously(auth);
       });
     } else {
       signInAnonymously(auth).catch((error) => {
         console.error("Error signing in anonymously:", error);
+        showModal(`Lỗi xác thực Firebase: ${error.message}. Vui lòng kiểm tra lại cấu hình Firebase và đảm bảo phương thức đăng nhập ẩn danh đã được bật trong Firebase Console.`);
       });
     }
 
@@ -380,8 +381,10 @@
     const minSpeedSpan = document.getElementById('min-speed');
 
     // Define the base Firestore collection path for devices
-    // Path structure: /artifacts/{appId}/public/devices/{deviceId}
-    const BASE_FIRESTORE_COLLECTION_PATH = `artifacts/${appId}/public/devices`;
+    // CORRECTED PATH STRUCTURE: /artifacts/{appId}/devices/{deviceId}
+    // This forms a collection 'artifacts', a document '{appId}', and a subcollection 'devices'
+    // where '{deviceId}' is the document for a specific device.
+    const BASE_FIRESTORE_COLLECTION_PATH_PREFIX = `artifacts/${appId}/devices`;
 
     // --- Function to send location data to Firestore ---
     async function sendToFirestore(lat, lng, speed) {
@@ -395,8 +398,9 @@
         return;
       }
       try {
-        // Get a document reference for the current device's ID within the 'devices' collection
-        const deviceDocRef = doc(db, BASE_FIRESTORE_COLLECTION_PATH, myDeviceId);
+        // Corrected document reference path
+        // The path will be: artifacts/{appId}/devices/{myDeviceId}
+        const deviceDocRef = doc(db, BASE_FIRESTORE_COLLECTION_PATH_PREFIX, myDeviceId);
 
         // Set the document data. setDoc creates or overwrites a document.
         await setDoc(deviceDocRef, {
@@ -436,8 +440,8 @@
       currentTrackedDeviceId = deviceIdToTrack;
       document.getElementById('firebase-receiving-id').textContent = currentTrackedDeviceId;
 
-      // Get document reference for the device to track
-      const trackedDeviceDocRef = doc(db, BASE_FIRESTORE_COLLECTION_PATH, currentTrackedDeviceId);
+      // Corrected document reference path for tracking
+      const trackedDeviceDocRef = doc(db, BASE_FIRESTORE_COLLECTION_PATH_PREFIX, currentTrackedDeviceId);
 
       // Listen for real-time changes to the document
       firebaseUnsubscribe = onSnapshot(trackedDeviceDocRef, (docSnapshot) => {
@@ -477,7 +481,7 @@
           console.log(`Data received from Firestore for ID ${currentTrackedDeviceId}:`, data);
           map.setView([latitude, longitude], 15); // Center map on the tracked device
         } else {
-          console.log(`No data found for device ID ${currentTrackedDeviceId} at: ${BASE_FIRESTORE_COLLECTION_PATH}/${currentTrackedDeviceId}`);
+          console.log(`No data found for device ID ${currentTrackedDeviceId} at: ${BASE_FIRESTORE_COLLECTION_PATH_PREFIX}/${currentTrackedDeviceId}`);
           showModal(`Không tìm thấy dữ liệu cho ID thiết bị: ${currentTrackedDeviceId}. Vui lòng kiểm tra lại ID.`);
           // Remove marker/polyline if data disappears
           if (trackedDeviceMarker) {
