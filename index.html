@@ -326,8 +326,10 @@
       if (user) {
         currentUserId = user.uid;
         console.log("Firebase authenticated with UID:", currentUserId);
+        console.log("Auth State: User is logged in. UID:", currentUserId); // Debug log
       } else {
-        console.log("Firebase user logged out or not authenticated.");
+        currentUserId = 'anonymous'; // Ensure it's reset if logged out
+        console.log("Firebase user logged out or not authenticated. Attempting anonymous sign-in..."); // Debug log
       }
       firebaseAuthReady = true;
       initMapAndLocationTracking(); // Initialize map and tracking after Firebase is ready
@@ -383,6 +385,11 @@
 
     // --- Function to send location data to Firestore ---
     async function sendToFirestore(lat, lng, speed) {
+      console.log("Attempting to send to Firestore:"); // Debug log
+      console.log("  firebaseAuthReady:", firebaseAuthReady); // Debug log
+      console.log("  currentUserId:", currentUserId); // Debug log
+      console.log("  myDeviceId:", myDeviceId); // Debug log
+
       if (!firebaseAuthReady || !currentUserId || currentUserId === 'anonymous') {
         console.warn("Firebase authentication not ready or no userId. Skipping data send.");
         return;
@@ -399,9 +406,10 @@
           timestamp: Date.now(),
           senderUid: currentUserId
         });
-        console.log(`Data for ${myDeviceId} sent to Firestore.`, { lat, lng, speed, senderUid: currentUserId });
+        console.log(`Data for ${myDeviceId} sent to Firestore successfully.`, { lat, lng, speed, senderUid: currentUserId }); // Debug log
       } catch (error) {
         console.error("Error sending data to Firestore:", error);
+        showModal(`Lỗi khi gửi dữ liệu lên Firestore: ${error.message}. Vui lòng kiểm tra kết nối mạng và quy tắc bảo mật Firestore.`);
       }
     }
 
